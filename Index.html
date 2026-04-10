@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Alert - User Panel</title>
+    <style>
+        /* Dark Theme & Modern Glassmorphism Setup */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: #0b0c10; 
+            color: #c5c6c7; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden;
+        }
+        
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(15px); 
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(102, 252, 241, 0.2); 
+            padding: 40px 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 0 20px rgba(102, 252, 241, 0.1); 
+            text-align: center; 
+            max-width: 400px; 
+            width: 90%; 
+            transition: all 0.3s ease;
+        }
+
+        h2 { 
+            color: #66fcf1; 
+            text-shadow: 0 0 10px rgba(102, 252, 241, 0.5); 
+            margin-bottom: 25px; 
+            letter-spacing: 2px;
+        }
+
+        .permission-btn { 
+            background: transparent; 
+            color: #66fcf1; 
+            border: 2px solid #66fcf1; 
+            padding: 12px 25px; 
+            border-radius: 8px; 
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer; 
+            transition: 0.3s; 
+            box-shadow: 0 0 10px rgba(102, 252, 241, 0.2); 
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .permission-btn:hover { 
+            background: #66fcf1; 
+            color: #0b0c10; 
+            box-shadow: 0 0 20px #66fcf1; 
+        }
+
+        .notice-box { 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: rgba(102, 252, 241, 0.05); 
+            border-left: 4px solid #66fcf1; 
+            border-radius: 8px; 
+            text-align: left; 
+            display: none; 
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .notice-title {
+            color: #45a29e;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        #noticeText {
+            font-size: 18px;
+            color: #ffffff;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-panel">
+        <h2>LIVE ALERTS</h2>
+        <button id="notifyBtn" class="permission-btn">Allow Notifications</button>
+        
+        <div class="notice-box" id="noticeBox">
+            <span class="notice-title">Latest Notice</span>
+            <p id="noticeText">Waiting for update...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // ⚠️ TOMAR FIREBASE CONFIG EKHANE BOSAO ⚠️
+        const firebaseConfig = {
+      apiKey: "AIzaSyBqAJQmpySrLi2_tE_5z2uesMHdscIOeAo",
+      authDomain: "premium-tour-20d87.firebaseapp.com",
+      projectId: "premium-tour-20d87",
+      storageBucket: "premium-tour-20d87.firebasestorage.app",
+      messagingSenderId: "1064761148626",
+      appId: "1:1064761148626:web:990b22b3617c22d42c190b",
+      measurementId: "G-FRVREQ552D"
+    };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // UI Elements
+        const notifyBtn = document.getElementById('notifyBtn');
+        const noticeBox = document.getElementById('noticeBox');
+        const noticeText = document.getElementById('noticeText');
+        
+        // Notification spam thekanor jonno flag
+        let isFirstLoad = true;
+
+        // Button e click korle permission chaibe
+        notifyBtn.addEventListener('click', () => {
+            if (!("Notification" in window)) {
+                alert("This browser does not support desktop notification");
+                return;
+            }
+            
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    updateButtonState();
+                } else {
+                    alert("Notification block kora ache. Live alert pete allow koro.");
+                }
+            });
+        });
+
+        function updateButtonState() {
+            notifyBtn.textContent = "Notifications Active";
+            notifyBtn.style.pointerEvents = "none";
+            notifyBtn.style.background = "#66fcf1";
+            notifyBtn.style.color = "#0b0c10";
+            notifyBtn.style.boxShadow = "0 0 20px #66fcf1";
+        }
+
+        // Page load hole check korbe permission dewa ache kina
+        if ("Notification" in window && Notification.permission === "granted") {
+            updateButtonState();
+        }
+
+        // Firebase Theke Realtime Data Listen Kora (Path: 'alerts/latest_notice')
+        const noticeRef = ref(db, 'alerts/latest_notice');
+        
+        onValue(noticeRef, (snapshot) => {
+            const data = snapshot.val();
+            
+            if (data && data.message) {
+                // UI te notice show korano
+                noticeBox.style.display = 'block';
+                noticeText.innerText = data.message;
+
+                // User er phone/pc te notification pathano (jodi first load na hoy)
+                if (!isFirstLoad && Notification.permission === "granted") {
+                    const notification = new Notification("🔔 New Alert!", {
+                        body: data.message,
+                        icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png",
+                        vibrate: [200, 100, 200]
+                    });
+                }
+                isFirstLoad = false;
+            }
+        });
+    </script>
+</body>
+</html>
